@@ -232,6 +232,58 @@ def get_cheapest_price_ssml():
     return f"<speak>{ssml_body}</speak>"
 
 
+def get_run_machine_ssml():
+    """Return SSML advising whether to run a machine now.
+
+    - If the current hour and the next two hours all have spot prices below 7 cents,
+      return: "Yes, now is a good time.".
+    - Otherwise, find the start time today (from now until 23:59) of the 3-hour
+      contiguous window with the lowest combined price and return:
+      "No, run it at TIME" (TIME is formatted as HH:MM).
+    """
+    entries, error = _fetch_all_price_entries()
+    if error:
+        return f"<speak>{error}</speak>"
+
+    sample_tz = entries[0]['dt'].tzinfo or timezone.utc
+    now_local = datetime.now(timezone.utc).astimezone(sample_tz)
+    hour_start = now_local.replace(minute=0, second=0, microsecond=0)
+
+    # Remaining entries for today starting from the current hour (inclusive).
+    todays_entries = [
+        e for e in entries
+        if e['dt'].astimezone(sample_tz).date() == now_local.date()
+        and e['dt'].astimezone(sample_tz) >= hour_start
+    ]
+
+    if not todays_entries:
+        return "<speak>I'm sorry, I couldn't find any remaining electricity price entries for today.</speak>"
+
+    # If we have at least current + next 2 hours, check threshold (7 cents = 0.07 EUR)
+    if len(todays_entries) >= 3:
+        first_three = todays_entries[:3]
+        if all((e['price'] * 100) <= 7.0 for e in first_three):
+            return "<speak>Yes, now is a good time.</speak>"
+
+    # Need to find the cheapest contiguous 3-hour window starting today (from now)
+    if len(todays_entries) < 3:
+        return "<speak>I'm sorry, I couldn't find a three-hour window remaining today.</speak>"
+
+    best_idx = None
+    best_sum = None
+    for i in range(0, len(todays_entries) - 2):
+        window = todays_entries[i:i+3]
+        s = sum(e['price'] for e in window)
+        if best_sum is None or s < best_sum:
+            best_sum = s
+            best_idx = i
+
+    start_dt = todays_entries[best_idx]['dt']
+    start_time_str = _format_hour(start_dt, sample_tz)
+
+    return f"<speak>No, run it at <say-as interpret-as=\"time\">{start_time_str}</say-as>.</speak>"
+
+
 def _build_ssml_response(ssml):
     return {
         "version": "1.0",
@@ -257,6 +309,9 @@ def lambda_handler(event, context):
 
         if intent_name == "CheapestPriceIntent":
             return _build_ssml_response(get_cheapest_price_ssml())
+
+        if intent_name == "ShouldIRunMachineIntent":
+            return _build_ssml_response(get_run_machine_ssml())
 
         # Default to the existing price overview for the primary intent.
         if intent_name in {"GetSpotPriceIntent", "AMAZON.FallbackIntent"}:
