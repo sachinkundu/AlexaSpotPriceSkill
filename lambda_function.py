@@ -1,6 +1,6 @@
 import json
 import requests
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 
 def _parse_iso_datetime(s):
@@ -58,9 +58,10 @@ def get_spot_price():
     return message
 
 
-def _get_price_entries(future_hours=4):
-    """Fetch hourly entries and return a list of up to `future_hours` entries
-    starting from the current hour. Returns (entries, error_message)."""
+def _fetch_all_price_entries():
+    """Fetch all available hourly entries from the API sorted by timestamp.
+
+    Returns (entries, error_message)."""
     url = "https://api.spot-hinta.fi/TodayAndDayForward"
     params = {"priceResolution": 60, "region": "FI"}
 
@@ -84,35 +85,45 @@ def _get_price_entries(future_hours=4):
 
         entries.sort(key=lambda x: x['dt'])
 
-        sample_tz = entries[0]['dt'].tzinfo or timezone.utc
-        now = datetime.now(timezone.utc).astimezone(sample_tz)
-        hour_start = now.replace(minute=0, second=0, microsecond=0)
-
-        current_index = None
-        for i, e in enumerate(entries):
-            if e['dt'] == hour_start:
-                current_index = i
-                break
-            if e['dt'] > hour_start:
-                current_index = i - 1 if i > 0 else i
-                break
-
-        if current_index is None:
-            current_index = len(entries) - 1
-
-        desired = []
-        for offset in range(0, future_hours):
-            idx = current_index + offset
-            if 0 <= idx < len(entries):
-                desired.append(entries[idx])
-
-        if len(desired) == 0:
-            return None, "I'm sorry, I couldn't determine the spot prices for the next hours."
-
-        return desired, None
+        return entries, None
 
     except requests.exceptions.RequestException:
         return None, "I'm sorry, I couldn't retrieve the electricity price at this moment. Please try again later."
+
+
+def _get_price_entries(future_hours=4):
+    """Fetch hourly entries and return a list of up to `future_hours` entries
+    starting from the current hour. Returns (entries, error_message)."""
+    entries, error = _fetch_all_price_entries()
+    if error:
+        return None, error
+
+    sample_tz = entries[0]['dt'].tzinfo or timezone.utc
+    now = datetime.now(timezone.utc).astimezone(sample_tz)
+    hour_start = now.replace(minute=0, second=0, microsecond=0)
+
+    current_index = None
+    for i, e in enumerate(entries):
+        if e['dt'] == hour_start:
+            current_index = i
+            break
+        if e['dt'] > hour_start:
+            current_index = i - 1 if i > 0 else i
+            break
+
+    if current_index is None:
+        current_index = len(entries) - 1
+
+    desired = []
+    for offset in range(0, future_hours):
+        idx = current_index + offset
+        if 0 <= idx < len(entries):
+            desired.append(entries[idx])
+
+    if len(desired) == 0:
+        return None, "I'm sorry, I couldn't determine the spot prices for the next hours."
+
+    return desired, None
 
 
 def get_spot_price_ssml():
@@ -151,13 +162,65 @@ def get_spot_price_ssml():
 
     return f"<speak>{ssml_body}</speak>"
 
-def lambda_handler(event, context):
-    """Alexa Lambda Function Entry Point"""
-    
-    # Prefer SSML output for better pacing
-    ssml = get_spot_price_ssml()
 
-    # Construct the Alexa JSON response with SSML
+def _format_hour(dt, tz):
+    """Format a datetime into a human-readable local hour string."""
+    localized = dt.astimezone(tz)
+    return localized.strftime("%H:%M")
+
+
+def get_cheapest_price_message():
+    """Return a human-readable description of today's cheapest hour."""
+    entries, error = _fetch_all_price_entries()
+    if error:
+        return error
+
+    sample_tz = entries[0]['dt'].tzinfo or timezone.utc
+    now_local = datetime.now(timezone.utc).astimezone(sample_tz)
+    today = now_local.date()
+
+    todays_entries = [e for e in entries if e['dt'].astimezone(sample_tz).date() == today]
+    if not todays_entries:
+        return "I'm sorry, I couldn't find today's electricity prices."
+
+    cheapest_entry = min(todays_entries, key=lambda e: e['price'])
+    cheapest_price = f"{cheapest_entry['price'] * 100:.1f}"
+    cheapest_time = _format_hour(cheapest_entry['dt'], sample_tz)
+
+    return (
+        "The lowest electricity spot price in Finland today is "
+        f"{cheapest_price} cents per kilowatt-hour at {cheapest_time}."
+    )
+
+
+def get_cheapest_price_ssml():
+    """Return SSML describing the cheapest hour for the current day."""
+    entries, error = _fetch_all_price_entries()
+    if error:
+        return f"<speak>{error}</speak>"
+
+    sample_tz = entries[0]['dt'].tzinfo or timezone.utc
+    now_local = datetime.now(timezone.utc).astimezone(sample_tz)
+    today = now_local.date()
+
+    todays_entries = [e for e in entries if e['dt'].astimezone(sample_tz).date() == today]
+    if not todays_entries:
+        return "<speak>I'm sorry, I couldn't find today's electricity prices.</speak>"
+
+    cheapest_entry = min(todays_entries, key=lambda e: e['price'])
+    cheapest_time = _format_hour(cheapest_entry['dt'], sample_tz)
+    cheapest_price = f"{cheapest_entry['price'] * 100:.1f}"
+
+    ssml_body = (
+        "The lowest electricity spot price in Finland today is "
+        f"<say-as interpret-as=\"cardinal\">{cheapest_price}</say-as> cents per kilowatt-hour "
+        f"at <say-as interpret-as=\"time\">{cheapest_time}</say-as>."
+    )
+
+    return f"<speak>{ssml_body}</speak>"
+
+
+def _build_ssml_response(ssml):
     return {
         "version": "1.0",
         "response": {
@@ -168,3 +231,24 @@ def lambda_handler(event, context):
             "shouldEndSession": True
         }
     }
+
+
+def lambda_handler(event, context):
+    """Alexa Lambda Function Entry Point"""
+
+    request = (event or {}).get("request", {})
+    request_type = request.get("type")
+
+    if request_type == "IntentRequest":
+        intent = request.get("intent", {})
+        intent_name = intent.get("name")
+
+        if intent_name == "CheapestPriceIntent":
+            return _build_ssml_response(get_cheapest_price_ssml())
+
+        # Default to the existing price overview for the primary intent.
+        if intent_name in {"GetSpotPriceIntent", "AMAZON.FallbackIntent"}:
+            return _build_ssml_response(get_spot_price_ssml())
+
+    # Handle LaunchRequest or anything unexpected with the standard overview.
+    return _build_ssml_response(get_spot_price_ssml())
