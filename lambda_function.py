@@ -179,9 +179,15 @@ def get_cheapest_price_message():
     now_local = datetime.now(timezone.utc).astimezone(sample_tz)
     today = now_local.date()
 
-    todays_entries = [e for e in entries if e['dt'].astimezone(sample_tz).date() == today]
+    # Consider only remaining hours starting from the current hour (inclusive).
+    hour_start = now_local.replace(minute=0, second=0, microsecond=0)
+    todays_entries = [
+        e for e in entries
+        if e['dt'].astimezone(sample_tz).date() == today
+        and e['dt'].astimezone(sample_tz) >= hour_start
+    ]
     if not todays_entries:
-        return "I'm sorry, I couldn't find today's electricity prices."
+        return "I'm sorry, I couldn't find any remaining electricity price entries for today."
 
     cheapest_entry = min(todays_entries, key=lambda e: e['price'])
     cheapest_price = f"{cheapest_entry['price'] * 100:.1f}"
@@ -203,9 +209,15 @@ def get_cheapest_price_ssml():
     now_local = datetime.now(timezone.utc).astimezone(sample_tz)
     today = now_local.date()
 
-    todays_entries = [e for e in entries if e['dt'].astimezone(sample_tz).date() == today]
+    # Consider only remaining hours starting from the current hour (inclusive).
+    hour_start = now_local.replace(minute=0, second=0, microsecond=0)
+    todays_entries = [
+        e for e in entries
+        if e['dt'].astimezone(sample_tz).date() == today
+        and e['dt'].astimezone(sample_tz) >= hour_start
+    ]
     if not todays_entries:
-        return "<speak>I'm sorry, I couldn't find today's electricity prices.</speak>"
+        return "<speak>I'm sorry, I couldn't find any remaining electricity price entries for today.</speak>"
 
     cheapest_entry = min(todays_entries, key=lambda e: e['price'])
     cheapest_time = _format_hour(cheapest_entry['dt'], sample_tz)
