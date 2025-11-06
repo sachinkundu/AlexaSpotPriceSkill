@@ -1,0 +1,108 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+bin/
+certifi/
+charset_normalizer/
+idna/
+package/
+requests/
+urllib3/
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+downloads/
+eggs/
+*.egg-info/
+.installed.cfg
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg
+pip-wheel-metadata/
+share/python-wheels/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.pytest_cache/
+
+# Pyenv
+.python-version
+
+# Environment
+env/
+venv/
+ENV/
+.venv/
+.venv
+venv.bak/
+
+# Virtualenv
+local/
+instance/
+.webassets-cache
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# AWS / Serverless
+.serverless/
+.aws-sam/
+*.zip
+
+# Sensitive / local env files
+.env
+.env.*
+credentials
+aws_credentials
+
+# Python packaging
+*.dist-info/
+*.egg-info/
+
+# mypy
+.mypy_cache/
+
+# logs
+*.log
+
+# Misc
+.cache/
+coverage/
+
+# Node (if present)
+node_modules/
+
+# Ignore local git-ignored files created by some tools
+.eggs/
+
+# End of .gitignore
