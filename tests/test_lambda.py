@@ -20,7 +20,7 @@ def test_launch_request_has_no_closing_cue():
     resp = lf.lambda_handler(event, None)
 
     ssml = resp["response"]["outputSpeech"]["ssml"]
-    assert lf.CLOSING_CUE not in ssml
+    assert not any(v in ssml for v in lf.CLOSING_CUES)
     # LaunchResponse in this skill keeps the session open but does not provide a reprompt
     assert resp["response"].get("reprompt") is None
 
@@ -33,7 +33,7 @@ def test_intent_responses_include_closing_cue(monkeypatch):
     resp = lf.lambda_handler(event, None)
 
     ssml = resp["response"]["outputSpeech"]["ssml"]
-    assert lf.CLOSING_CUE in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
     # The session should remain open (default)
     assert resp["response"].get("shouldEndSession") is False
 
@@ -45,7 +45,7 @@ def test_stop_intent_ends_session_and_no_closing_cue():
     ssml = resp["response"]["outputSpeech"]["ssml"]
     assert ssml == "<speak>Goodbye.</speak>"
     assert resp["response"].get("shouldEndSession") is True
-    assert lf.CLOSING_CUE not in ssml
+    assert not any(v in ssml for v in lf.CLOSING_CUES)
 
 
 def test_get_spot_price_formats_prices(monkeypatch):
@@ -98,7 +98,7 @@ def test_cheapest_price_intent_returns_expected_time_and_price(monkeypatch):
     assert f'<say-as interpret-as="time">{cheapest_time}</say-as>' in ssml
 
     # And the global closing cue should be appended
-    assert lf.CLOSING_CUE in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
 
 
 def test_should_i_run_machine_now_yes(monkeypatch):
@@ -121,7 +121,7 @@ def test_should_i_run_machine_now_yes(monkeypatch):
     ssml = resp["response"]["outputSpeech"]["ssml"]
 
     assert "Yes, now is a good time." in ssml
-    assert lf.CLOSING_CUE in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
 
 
 def test_should_i_run_machine_now_schedule_later(monkeypatch):
@@ -148,7 +148,7 @@ def test_should_i_run_machine_now_schedule_later(monkeypatch):
     assert "Yes, now is a good time." not in ssml
     recommended_time = lf._format_hour(entries[3]["dt"], entries[3]["dt"].tzinfo)
     assert f'<say-as interpret-as="time">{recommended_time}</say-as>' in ssml
-    assert lf.CLOSING_CUE in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
 
 
 def test_should_i_run_machine_no_three_hour_window_remaining(monkeypatch):
@@ -173,7 +173,7 @@ def test_should_i_run_machine_no_three_hour_window_remaining(monkeypatch):
 
     assert "I couldn't find a three-hour window remaining today." in ssml
     # closing cue should still be appended by the handler
-    assert lf.CLOSING_CUE in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
     assert resp["response"].get("shouldEndSession") is False
 
 
@@ -222,7 +222,7 @@ def test_should_i_run_machine_after_14_check_tomorrow(monkeypatch):
     # earliest recommended time should be 08:00 formatted by _format_hour
     recommended_time = lf._format_hour(entries[-24 + 8]["dt"], entries[-24 + 8]["dt"].tzinfo)
     assert f'<say-as interpret-as="time">{recommended_time}</say-as>' in ssml
-    assert lf.CLOSING_CUE in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
 
 
 def test_should_i_run_machine_after_14_no_good_times(monkeypatch):
@@ -259,5 +259,5 @@ def test_should_i_run_machine_after_14_no_good_times(monkeypatch):
     ssml = resp["response"]["outputSpeech"]["ssml"]
 
     assert "No good times today or tomorrow." in ssml
-    assert lf.CLOSING_CUE in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
     assert resp["response"].get("shouldEndSession") is False

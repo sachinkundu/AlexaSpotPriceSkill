@@ -1,8 +1,34 @@
 import json
 import requests
+import random
 from datetime import datetime, timezone
 
-CLOSING_CUE = '<break time="100ms"/> Anything else? You can also say stop.'
+# A set of variants for the closing cue so the skill doesn't repeat the exact
+# same sentence every time. Each variant includes a short pause after the
+# "Anything else?" question to give emphasis.
+CLOSING_CUES = [
+    # Friendly, concise
+    '<break time="90ms"/> Anything else? <break time="220ms"/> You can also say stop.',
+    # Slightly more conversational
+    '<break time="120ms"/> Want anything more? <break time="220ms"/> Or say stop to finish.',
+    # Casual, human phrasing
+    '<break time="80ms"/> I\'m still here — anything else I can help with? <break time="220ms"/> Say stop to end.',
+    # Polite offer with pause
+    '<break time="100ms"/> Would you like anything else? <break time="220ms"/> You can say stop.',
+    # Short and warm
+    '<break time="70ms"/> Need anything else? <break time="220ms"/>',
+    # Encouraging, alternative phrasing
+    '<break time="110ms"/> Anything more I can do for you? <break time="220ms"/> Say stop if you\'re done.',
+    # Minimal prompt plus stop hint
+    '<break time="90ms"/> Anything else? <break time="220ms"/> Otherwise say stop.',
+    # Very casual
+    '<break time="80ms"/> Got more questions? <break time="220ms"/> Or say stop when you\'re finished.',
+]
+
+
+def _choose_closing_cue():
+    # Use random.choice for variety; tests check for presence of any variant.
+    return random.choice(CLOSING_CUES)
 
 def _parse_iso_datetime(s):
     """Parse ISO datetimes returned by the API into a timezone-aware datetime.
@@ -361,14 +387,15 @@ def _with_closing_cue(ssml):
 
     s = ssml.strip()
     # If it already looks like an SSML speak block, insert before the final </speak>
+    chosen = _choose_closing_cue()
     if s.startswith("<speak"):
         if "</speak>" in s:
             head, tail = s.rsplit("</speak>", 1)
-            return f"{head} {CLOSING_CUE}</speak>{tail}"
+            return f"{head} {chosen}</speak>{tail}"
         else:
-            return f"{s} {CLOSING_CUE}"
+            return f"{s} {chosen}"
     # Otherwise wrap and append cue
-    return f"<speak>{s} {CLOSING_CUE}</speak>"
+    return f"<speak>{s} {chosen}</speak>"
 
 
 def lambda_handler(event, context):
