@@ -6,11 +6,13 @@ import pytest
 import lambda_function as lf
 
 
-def make_event(request_type, intent_name=None):
+def make_event(request_type, intent_name=None, slots=None):
     event = {"request": {"type": request_type}}
     if intent_name:
         event["request"]["type"] = "IntentRequest"
         event["request"]["intent"] = {"name": intent_name}
+        if slots:
+            event["request"]["intent"]["slots"] = slots
     return event
 
 
@@ -261,3 +263,58 @@ def test_should_i_run_machine_after_14_no_good_times(monkeypatch):
     assert "No good times today or tomorrow." in ssml
     assert any(v in ssml for v in lf.CLOSING_CUES)
     assert resp["response"].get("shouldEndSession") is False
+
+
+def test_spot_price_at_hour_tomorrow_before_14(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    desired_now = datetime.now(timezone.utc).replace(hour=13, minute=0, second=0, microsecond=0)
+
+    class FakeDateTime:
+        @staticmethod
+        def now(tz=None):
+            if tz is None:
+                return desired_now
+            return desired_now.astimezone(tz)
+
+    monkeypatch.setattr(lf, "datetime", FakeDateTime)
+
+    entries = []
+    for h in range(0, 24):
+        entries.append({"dt": datetime(desired_now.year, desired_now.month, desired_now.day, h, tzinfo=timezone.utc), "price": 0.10})
+    tomorrow = desired_now + timedelta(days=1)
+    for h in range(0, 24):
+        entries.append({"dt": datetime(tomorrow.year, tomorrow.month, tomorrow.day, h, tzinfo=timezone.utc), "price": 0.10})
+
+    monkeypatch.setattr(lf, "_fetch_all_price_entries", lambda: (entries, None))
+
+    slots = {"date": {"value": "tomorrow"}, "time": {"value": "11:00"}}
+    event = make_event("IntentRequest", intent_name="GetSpotPriceAtHourIntent", slots=slots)
+    resp = lf.lambda_handler(event, None)
+
+    ssml = resp["response"]["outputSpeech"]["ssml"]
+
+    assert "Check back after 2 PM since the spot prices are not published yet." in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)
+
+
+def test_spot_price_at_hour_success(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    target_date = now.date()
+    entries = []
+    for h in range(0, 24):
+        entries.append({"dt": datetime(target_date.year, target_date.month, target_date.day, h, tzinfo=timezone.utc), "price": 0.05})
+
+    monkeypatch.setattr(lf, "_fetch_all_price_entries", lambda: (entries, None))
+
+    slots = {"date": {"value": "today"}, "time": {"value": "11:00"}}
+    event = make_event("IntentRequest", intent_name="GetSpotPriceAtHourIntent", slots=slots)
+    resp = lf.lambda_handler(event, None)
+
+    ssml = resp["response"]["outputSpeech"]["ssml"]
+
+    assert '<say-as interpret-as="time">11:00</say-as>' in ssml
+    assert '<say-as interpret-as="cardinal">5.0</say-as>' in ssml
+    assert any(v in ssml for v in lf.CLOSING_CUES)

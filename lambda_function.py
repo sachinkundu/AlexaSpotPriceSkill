@@ -196,6 +196,96 @@ def _format_hour(dt, tz):
     return localized.strftime("%H:%M")
 
 
+def _parse_hour_from_time_value(time_value):
+    if not time_value:
+        return None
+    parts = time_value.split(":")
+    if not parts:
+        return None
+    try:
+        hour = int(parts[0])
+    except ValueError:
+        return None
+    if 0 <= hour <= 23:
+        return hour
+    return None
+
+
+def _parse_date_value(date_value, now_local):
+    if not date_value or date_value == "today":
+        return now_local.date()
+    if date_value == "tomorrow":
+        from datetime import timedelta
+
+        return (now_local + timedelta(days=1)).date()
+    try:
+        parsed = datetime.fromisoformat(date_value)
+    except ValueError:
+        return None
+    return parsed.date()
+
+
+def get_spot_price_at_hour_ssml(date_value, time_value):
+    entries, error = _fetch_all_price_entries()
+    if error:
+        return f"<speak>{error}</speak>"
+
+    sample_tz = entries[0]['dt'].tzinfo or timezone.utc
+    now_local = datetime.now(timezone.utc).astimezone(sample_tz)
+
+    hour = _parse_hour_from_time_value(time_value)
+    target_date = _parse_date_value(date_value, now_local)
+    if hour is None or target_date is None:
+        return "<speak>I'm sorry, I couldn't understand the requested time.</speak>"
+
+    if date_value == "tomorrow" and now_local.hour < 14:
+        return "<speak>Check back after 2 PM since the spot prices are not published yet.</speak>"
+
+    target_dt = datetime(
+        target_date.year,
+        target_date.month,
+        target_date.day,
+        hour,
+        tzinfo=sample_tz,
+    )
+    target_hour_start = target_dt.replace(minute=0, second=0, microsecond=0)
+
+    target_entry = None
+    for entry in entries:
+        entry_dt = entry['dt'].astimezone(sample_tz).replace(minute=0, second=0, microsecond=0)
+        if entry_dt == target_hour_start:
+            target_entry = entry
+            break
+
+    if not target_entry:
+        return "<speak>I'm sorry, I couldn't find a spot price for that hour.</speak>"
+
+    price_cents = f"{target_entry['price'] * 100:.1f}"
+    time_str = target_hour_start.strftime("%H:%M")
+    if date_value == "tomorrow":
+        date_phrase = "tomorrow"
+    elif date_value == "today" or not date_value:
+        date_phrase = "today"
+    else:
+        date_phrase = target_date.strftime("%Y-%m-%d")
+
+    ssml_body = (
+        "The electricity spot price in Finland "
+        f"{date_phrase} at <say-as interpret-as=\"time\">{time_str}</say-as> is "
+        f"<say-as interpret-as=\"cardinal\">{price_cents}</say-as> cents per kilowatt-hour."
+    )
+    return f"<speak>{ssml_body}</speak>"
+
+
+def _get_slot_value(intent, *slot_names):
+    slots = intent.get("slots", {}) if intent else {}
+    for name in slot_names:
+        slot = slots.get(name) or slots.get(name.lower()) or slots.get(name.upper())
+        if slot and slot.get("value"):
+            return slot["value"]
+    return None
+
+
 def get_cheapest_price_message():
     """Return a human-readable description of today's cheapest hour."""
     entries, error = _fetch_all_price_entries()
@@ -421,6 +511,12 @@ def lambda_handler(event, context):
         # append the configured closing cue inside the SSML.
         if intent_name == "CheapestPriceIntent":
             ssml = get_cheapest_price_ssml()
+            return _build_ssml_response(_with_closing_cue(ssml))
+
+        if intent_name == "GetSpotPriceAtHourIntent":
+            date_value = _get_slot_value(intent, "date", "day")
+            time_value = _get_slot_value(intent, "time", "hour")
+            ssml = get_spot_price_at_hour_ssml(date_value, time_value)
             return _build_ssml_response(_with_closing_cue(ssml))
 
         if intent_name == "ShouldIRunMachineIntent":
