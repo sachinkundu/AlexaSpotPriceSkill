@@ -10,7 +10,8 @@ Prerequisites
 
 - Bash (`/bin/bash`)
 - `zip` and `pip` available on your machine
-- AWS CLI configured with credentials that have permission to update the Lambda function (or appropriate IAM role). Ensure the CLI is configured for the correct AWS account/region.
+- AWS CLI configured with credentials that have permission to update the Lambda function.
+- (Optional) **ASK CLI** installed and configured (`npm install -g ask-cli`, `ask configure`) for automatic interaction model updates.
 
 Quick usage
 
@@ -24,7 +25,8 @@ What the script does
 - Cleans previous `package/` and ZIP artifacts and creates a fresh `package/` directory.
 - Installs dependencies from `requirements.txt` into `./package` using `pip --target`.
 - Creates `lambda.zip` containing the dependencies and your `lambda_function.py`.
-- Calls `aws lambda update-function-code --function-name "$FUNC" --zip-file "fileb://$ZIP"` to upload the package. By default the script sets `FUNC="AlexaSpotPriceSkill"`.
+- Calls `aws lambda update-function-code --function-name "$FUNC" --zip-file "fileb://$ZIP"` to upload the package.
+- If `ask` CLI is present, updates the **Interaction Model** for the skill using `interaction_model.json`.
 
 Configuration
 

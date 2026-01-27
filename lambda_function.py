@@ -32,7 +32,8 @@ def lambda_handler(event, context):
         # For all Intent invocations (except Stop/Cancel which end the session),
         # append the configured closing cue inside the SSML.
         if intent_name == "CheapestPriceIntent":
-            ssml = ssml_builder.get_cheapest_price_ssml()
+            date_value = _get_slot_value(intent, "date", "day")
+            ssml = ssml_builder.get_cheapest_price_ssml(date_value)
             return ssml_builder.build_ssml_response(ssml_builder.with_closing_cue(ssml))
 
         if intent_name == "GetSpotPriceAtHourIntent":

@@ -39,14 +39,24 @@
                 },
                 {
                     "name": "CheapestPriceIntent",
-                    "slots": [],
+                    "slots": [
+                        {
+                            "name": "date",
+                            "type": "AMAZON.DATE"
+                        }
+                    ],
                     "samples": [
                         "when is it cheapest",
                         "what is the cheapest price",
                         "when is the lowest price",
                         "best time for electricity",
                         "cheapest hour",
-                        "when should I use electricity"
+                        "when should I use electricity",
+                        "when is it cheapest {date}",
+                        "what is the cheapest price {date}",
+                        "when is the lowest price {date}",
+                        "best time for electricity {date}",
+                        "cheapest hour {date}"
                     ]
                 },
                 {

@@ -1,5 +1,5 @@
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import spot_price_api
 import utils
 
@@ -128,30 +128,65 @@ def get_spot_price_ssml():
     return f"<speak>{ssml_body}</speak>"
 
 
-def get_cheapest_price_ssml():
+def get_cheapest_price_ssml(date_value=None):
     entries, error = spot_price_api.fetch_all_price_entries()
     if error:
         return f"<speak>{error}</speak>"
 
     sample_tz = entries[0]['dt'].tzinfo or timezone.utc
     now_local = datetime.now(timezone.utc).astimezone(sample_tz)
-    today = now_local.date()
+    
+    # Defaults to today if date_value is None or "today"
+    target_date = utils.parse_date_value(date_value, now_local)
+    
+    if date_value == "tomorrow" and now_local.hour < 14:
+        return "<speak>Check back after 2 PM since the spot prices are not published yet.</speak>"
 
-    hour_start = now_local.replace(minute=0, second=0, microsecond=0)
-    todays_entries = [
+    # Safe check if target_date calculation failed or is missing
+    if not target_date:
+        # Fallback to today if parsing fails, or handle error? 
+        # For now, let's treat it as today logic or return error.
+        # But existing code didn't handle None target_date well.
+        target_date = now_local.date()
+
+    # Determine date phrase for speech
+    if date_value == "tomorrow":
+        date_phrase = "tomorrow"
+    elif date_value == "today" or not date_value:
+        date_phrase = "today"
+    else:
+        date_phrase = target_date.strftime("%Y-%m-%d")
+
+    # Filter entries for the target date
+    # Start of the target date day
+    day_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=sample_tz)
+    day_end = day_start + timedelta(days=1)
+    
+    # We also want to filter out past hours if target_date is today
+    # But for "cheapest price today", if it's 8PM, do we want cheapest price of *remaining* hours or whole day?
+    # Original code: "and e['dt'].astimezone(sample_tz) >= hour_start" -> remaining hours.
+    # New requirement: "when is the price cheapest today" usually implies future.
+    # Let's keep "remaining hours" logic if target_date is today.
+    
+    filter_start = day_start
+    if target_date == now_local.date():
+         # Current hour start
+         filter_start = now_local.replace(minute=0, second=0, microsecond=0)
+    
+    target_entries = [
         e for e in entries
-        if e['dt'].astimezone(sample_tz).date() == today
-        and e['dt'].astimezone(sample_tz) >= hour_start
+        if e['dt'].astimezone(sample_tz) >= filter_start and e['dt'].astimezone(sample_tz) < day_end
     ]
-    if not todays_entries:
-        return "<speak>I'm sorry, I couldn't find any remaining electricity price entries for today.</speak>"
 
-    cheapest_entry = min(todays_entries, key=lambda e: e['price'])
+    if not target_entries:
+        return f"<speak>I'm sorry, I couldn't find any electricity price entries for {date_phrase}.</speak>"
+
+    cheapest_entry = min(target_entries, key=lambda e: e['price'])
     cheapest_time = utils.format_hour(cheapest_entry['dt'], sample_tz)
     cheapest_price = f"{cheapest_entry['price'] * 100:.1f}"
 
     ssml_body = (
-        "The lowest electricity spot price in Finland today is "
+        f"The lowest electricity spot price in Finland {date_phrase} is "
         f"<say-as interpret-as=\"cardinal\">{cheapest_price}</say-as> cents per kilowatt-hour "
         f"at <say-as interpret-as=\"time\">{cheapest_time}</say-as>."
     )
