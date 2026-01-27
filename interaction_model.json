@@ -1,0 +1,90 @@
+{
+    "interactionModel": {
+        "languageModel": {
+            "invocationName": "electricity prices",
+            "intents": [
+                {
+                    "name": "AMAZON.CancelIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.HelpIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.StopIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.NavigateHomeIntent",
+                    "samples": []
+                },
+                {
+                    "name": "AMAZON.FallbackIntent",
+                    "samples": []
+                },
+                {
+                    "name": "GetSpotPriceIntent",
+                    "slots": [],
+                    "samples": [
+                        "what is the price",
+                        "what is the spot price",
+                        "tell me the price",
+                        "tell me the spot price",
+                        "current price",
+                        "price now",
+                        "how much is electricity",
+                        "what is the electricity price"
+                    ]
+                },
+                {
+                    "name": "CheapestPriceIntent",
+                    "slots": [],
+                    "samples": [
+                        "when is it cheapest",
+                        "what is the cheapest price",
+                        "when is the lowest price",
+                        "best time for electricity",
+                        "cheapest hour",
+                        "when should I use electricity"
+                    ]
+                },
+                {
+                    "name": "GetSpotPriceAtHourIntent",
+                    "slots": [
+                        {
+                            "name": "time",
+                            "type": "AMAZON.TIME"
+                        },
+                        {
+                            "name": "date",
+                            "type": "AMAZON.DATE"
+                        }
+                    ],
+                    "samples": [
+                        "what is the price at {time}",
+                        "how much is it at {time}",
+                        "price at {time}",
+                        "what is the price at {time} {date}",
+                        "price at {time} {date}",
+                        "check price for {time}",
+                        "what will the price be at {time}",
+                        "cost at {time}"
+                    ]
+                },
+                {
+                    "name": "ShouldIRunMachineIntent",
+                    "slots": [],
+                    "samples": [
+                        "should I run the machine",
+                        "is it a good time to run the washing machine",
+                        "can I turn on the dishwasher",
+                        "should I do laundry now",
+                        "is it a good time for high consumption"
+                    ]
+                }
+            ],
+            "types": []
+        }
+    }
+}

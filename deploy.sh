@@ -15,7 +15,7 @@ echo "Zipping code..."
 cd package
 zip -r9 "../$ZIP" .
 cd ..
-zip -g "$ZIP" lambda_function.py
+zip -g "$ZIP" lambda_function.py spot_price_api.py utils.py ssml_builder.py
 
 echo "Updating Lambda..."
 aws lambda update-function-code \

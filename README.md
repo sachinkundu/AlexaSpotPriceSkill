@@ -44,7 +44,9 @@ You can run small local checks without deploying (requires `requests` installed 
 ```bash
 python3 -c "import lambda_function; print(lambda_function.get_spot_price())"
 python3 -c "import lambda_function; print(lambda_function.get_spot_price_ssml())"
-python3 -c "import lambda_function; print(lambda_function.get_cheapest_price_message())"
+python3 -c "import lambda_function; print(lambda_function.get_cheapest_price_ssml())"
+python3 -c "import lambda_function; print(lambda_function.get_spot_price_at_hour_ssml('today', '14:00'))"
+python3 -c "import lambda_function; print(lambda_function.get_run_machine_ssml())"
 ```
 
 These commands print the plain-text and SSML outputs respectively.
@@ -55,6 +57,8 @@ The Lambda function now recognizes multiple intents:
 
 - `GetSpotPriceIntent` (or the launch request) returns the current price and the next few hours via `get_spot_price_ssml()`.
 - `CheapestPriceIntent` answers questions such as “When is electricity cheapest today?” using `get_cheapest_price_ssml()`.
+- `GetSpotPriceAtHourIntent` reports the price for a specific time, e.g., "What is the price at 2 PM?".
+- `ShouldIRunMachineIntent` advises on the best time to run high-consumption appliances based on upcoming prices.
 
 Update your Alexa skill's interaction model so the relevant utterances map to these intent names. The Lambda code will return informative error messages if price data is temporarily unavailable.
 
