@@ -56,7 +56,16 @@
                         "what is the cheapest price {date}",
                         "when is the lowest price {date}",
                         "best time for electricity {date}",
-                        "cheapest hour {date}"
+                        "cheapest hour {date}",
+                        "when is it cheapest tomorrow",
+                        "what is the cheapest price tomorrow",
+                        "when is the lowest price tomorrow",
+                        "best time for electricity tomorrow",
+                        "cheapest hour tomorrow",
+                        "when should I use electricity tomorrow",
+                        "when is it cheapest today",
+                        "what is the cheapest price today",
+                        "when is the lowest price today"
                     ]
                 },
                 {
